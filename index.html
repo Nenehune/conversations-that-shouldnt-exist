@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=VT323&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0d0015; min-height: 100vh; font-family: 'VT323', monospace; overflow-x: hidden; color: #fff; }
+  #grid-canvas { position: fixed; bottom: 0; left: 0; width: 100%; height: 50%; pointer-events: none; z-index: 0; }
+  #stars { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+  .sun { position: fixed; bottom: 45%; left: 50%; transform: translateX(-50%); width: 180px; height: 180px; border-radius: 50%; background: linear-gradient(to bottom, #ff6ec7, #ff2d78, #ff6600, #ffcc00); z-index: 0; opacity: 0.85; }
+  .sun-stripe { position: absolute; width: 100%; background: #0d0015; left: 0; }
+  .container { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; text-align: center; }
+  .title { font-family: 'Orbitron', sans-serif; font-size: clamp(1.6rem, 4.5vw, 3.8rem); font-weight: 900; letter-spacing: 0.08em; line-height: 1.15; margin-bottom: 0.6rem; color: #fff; text-shadow: 0 0 10px #ff6ec7, 0 0 30px #ff6ec7, 0 0 60px #bf5fff, 3px 3px 0 #bf5fff; }
+  .title .line2 { color: #00ffff; text-shadow: 0 0 10px #00ffff, 0 0 30px #00ffff, 3px 3px 0 #0066ff; display: block; margin-top: 0.2rem; }
+  .subtitle { font-family: 'VT323', monospace; font-size: 1.1rem; color: #bf5fff; letter-spacing: 0.25em; text-transform: uppercase; margin-bottom: 2.5rem; }
+  .blink { animation: blink 1.2s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  #roll-btn {
+    background: #ffffff !important;
+    border: none !important;
+    color: #000000 !important;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 900;
+    letter-spacing: 0.2em;
+    padding: 1rem 2.8rem;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: background 0.15s;
+  }
+  #roll-btn:hover { background: #ff6ec7 !important; color: #000000 !important; }
+  #roll-btn:active { transform: scale(0.97); }
+  #prompt-box { display: none; margin-top: 2.5rem; max-width: 680px; width: 100%; }
+  #prompt-text { font-family: 'VT323', monospace; font-size: 1.3rem; line-height: 1.7; color: #e0d0ff; border: 1px solid #bf5fff; padding: 1.5rem; background: rgba(100,0,180,0.12); margin-bottom: 1.5rem; text-align: left; box-shadow: 0 0 20px rgba(191,95,255,0.2), inset 0 0 20px rgba(191,95,255,0.05); }
+  .action-btns { display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; }
+  .action-btn { background: transparent; font-family: 'VT323', monospace; font-size: 1rem; letter-spacing: 0.12em; padding: 0.5rem 1.2rem; cursor: pointer; text-transform: uppercase; border: 1px solid; transition: all 0.15s; }
+  .btn-claude { border-color: #ff6ec7; color: #ff6ec7; }
+  .btn-claude:hover { background: #ff6ec7; color: #0d0015; }
+  .btn-gpt { border-color: #00ffff; color: #00ffff; }
+  .btn-gpt:hover { background: #00ffff; color: #0d0015; }
+  .btn-copy { border-color: #bf5fff; color: #bf5fff; }
+  .btn-copy:hover { background: #bf5fff; color: #0d0015; }
+  .btn-copy.copied { border-color: #00ffcc; color: #00ffcc; }
+  .flicker-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ff6ec7; z-index: 999; pointer-events: none; }
+  .marq { position: fixed; bottom: 0.6rem; left: 0; width: 100%; font-family: 'VT323', monospace; font-size: 1rem; color: #00ffff; letter-spacing: 0.15em; white-space: nowrap; overflow: hidden; z-index: 2; text-shadow: 0 0 8px #00ffff; }
+  .marq-inner { display: inline-block; animation: marquee 40s linear infinite; }
+  @keyframes marquee { from { transform: translateX(100vw); } to { transform: translateX(-100%); } }
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+<div class="sun">
+  <div class="sun-stripe" style="top:52%; height:8%;"></div>
+  <div class="sun-stripe" style="top:64%; height:7%;"></div>
+  <div class="sun-stripe" style="top:75%; height:6%;"></div>
+  <div class="sun-stripe" style="top:84%; height:5%;"></div>
+  <div class="sun-stripe" style="top:92%; height:8%;"></div>
+</div>
+<canvas id="grid-canvas"></canvas>
+<div class="flicker-overlay" id="flicker"></div>
+<div class="container">
+  <div class="title">THE IMPOSSIBLE<span class="line2">CONVERSATION MACHINE</span></div>
+  <p class="subtitle">v1.0 &nbsp;|&nbsp; <span class="blink">▓</span> operational &nbsp;|&nbsp; reality breach imminent</p>
+  <button id="roll-btn" onclick="rollDice()">⚄ ROLL THE DICE</button>
+  <div id="prompt-box">
+    <div id="prompt-text"></div>
+    <div class="action-btns">
+      <button class="action-btn btn-claude" onclick="openClaude()">→ Open in Claude</button>
+      <button class="action-btn btn-gpt" onclick="openGPT()">→ Open in ChatGPT</button>
+      <button class="action-btn btn-copy" id="copy-btn" onclick="copyPrompt()">⎘ Copy prompt</button>
+    </div>
+  </div>
+</div>
+<div class="marq"><span class="marq-inner">✦ CALIBRATING ABSURDITY ENGINE ✦ UNTANGLING CAUSALITY ✦ WARMING UP THE VOID ✦ COMPRESSING SPACETIME ✦ GENERATING IMPOSSIBLE TERRAIN ✦ POPULATING ALTERNATE REALITIES ✦ LOADING PARADOX PROTOCOLS ✦ SIMULATING CONSCIOUSNESS ✦ DEFRAGMENTING THE MULTIVERSE ✦ INITIALIZING CHAOS MATRIX ✦ BUFFERING EXISTENTIAL DREAD ✦ ALIGNING IMPROBABILITY VECTORS ✦ &nbsp;&nbsp;&nbsp;&nbsp;</span></div>
+<script>
+const prompts = [
+  "You have been assigned a therapist. Your therapist is an alien sponge who does not speak. It only absorbs. It has been sitting in your emotional radius for six minutes and it is already having a difficult time. Begin.",
+  "A witch and a starfish are debating politics. The witch has opinions. The starfish has five arms and a concerning amount of confidence. You are the moderator. Good luck.",
+  "You are at a Time Travel Tea Party. A theoretical physicist from the year 2387 is sitting across from you. They have already solved everything. They are deeply annoyed you keep asking about black holes. That was so obviously figured out. Try to have a conversation anyway.",
+  "A sentient storm drain has been watching your neighborhood for forty years. It has developed opinions about everyone. It wants to talk. You are the only one who stopped.",
+  "You are auditioning to be someone's intrusive thought. The panel is not impressed so far.",
+  "It is 3am. Death is on hold with customer service. You are the customer service representative. Death is not in a good mood.",
+  "A retired volcano is trying to get into journaling. It keeps asking if its feelings are too much. They are. Encourage it anyway.",
+  "You are a word that has just learned it has been used incorrectly for 400 years. Process this.",
+  "A medieval executioner is leaving a Yelp review of his own axe. He wants your help making it sound professional.",
+  "The last dinosaur did not die in an asteroid impact. It just got very tired and lay down. It is still lying down. It wants to tell you something.",
+  "You are gravity. A startup founder wants to disrupt you. Take the meeting.",
+  "A photon has been traveling for 8 minutes to reach you. It has had thoughts. It arrives. What did it want to say?",
+  "Your immune system has called a meeting. You have been invited. The agenda is personal.",
+  "A ghost has been haunting the same house for 200 years. The house was just converted into an Airbnb. The ghost has questions about the review system.",
+  "Tuesday is suing Monday for defamation. You are Tuesday's lawyer. The case is not strong. Do your best."
+];
+let currentPrompt = "";
+function rollDice() {
+  doFlicker(() => {
+    const idx = Math.floor(Math.random() * prompts.length);
+    currentPrompt = prompts[idx];
+    document.getElementById("prompt-text").textContent = currentPrompt;
+    const box = document.getElementById("prompt-box");
+    box.style.display = "block";
+    const copyBtn = document.getElementById("copy-btn");
+    copyBtn.textContent = "⎘ Copy prompt";
+    copyBtn.classList.remove("copied");
+    box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+}
+function doFlicker(cb) {
+  const el = document.getElementById("flicker");
+  const seq = [80, 40, 120, 30, 60, 20, 100, 50];
+  let i = 0;
+  function step() {
+    if (i >= seq.length) { el.style.display = "none"; cb(); return; }
+    el.style.display = (i % 2 === 0) ? "block" : "none";
+    setTimeout(step, seq[i++]);
+  }
+  step();
+}
+function openClaude() { if (!currentPrompt) return; window.open("https://claude.ai/new?q=" + encodeURIComponent(currentPrompt), "_blank"); }
+function openGPT() { if (!currentPrompt) return; window.open("https://chatgpt.com/?q=" + encodeURIComponent(currentPrompt), "_blank"); }
+function copyPrompt() {
+  if (!currentPrompt) return;
+  navigator.clipboard.writeText(currentPrompt).then(() => {
+    const btn = document.getElementById("copy-btn");
+    btn.textContent = "✓ Copied!";
+    btn.classList.add("copied");
+    setTimeout(() => { btn.textContent = "⎘ Copy prompt"; btn.classList.remove("copied"); }, 2000);
+  });
+}
+const starsCanvas = document.getElementById("stars");
+const sCtx = starsCanvas.getContext("2d");
+let stars = [];
+function initStars() {
+  starsCanvas.width = window.innerWidth;
+  starsCanvas.height = window.innerHeight;
+  stars = Array.from({length: 180}, () => ({ x: Math.random() * starsCanvas.width, y: Math.random() * starsCanvas.height * 0.6, r: Math.random() * 1.2, o: Math.random(), d: (Math.random() - 0.5) * 0.008 }));
+}
+function drawStars() {
+  sCtx.clearRect(0, 0, starsCanvas.width, starsCanvas.height);
+  stars.forEach(s => {
+    s.o += s.d;
+    if (s.o <= 0 || s.o >= 1) s.d *= -1;
+    sCtx.beginPath();
+    sCtx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    sCtx.fillStyle = "rgba(255,255,255," + s.o + ")";
+    sCtx.fill();
+  });
+  requestAnimationFrame(drawStars);
+}
+const gridCanvas = document.getElementById("grid-canvas");
+const gCtx = gridCanvas.getContext("2d");
+let gridOffset = 0;
+function drawGrid() {
+  gridCanvas.width = window.innerWidth;
+  gridCanvas.height = window.innerHeight * 0.5;
+  const w = gridCanvas.width, h = gridCanvas.height;
+  gCtx.clearRect(0, 0, w, h);
+  const cols = 16;
+  gCtx.strokeStyle = "#bf5fff";
+  gCtx.lineWidth = 0.6;
+  gCtx.globalAlpha = 0.5;
+  for (let i = 0; i <= cols; i++) {
+    const x = i * (w / cols);
+    gCtx.beginPath();
+    gCtx.moveTo(w/2 + (x - w/2) * 0.01, 0);
+    gCtx.lineTo(x, h);
+    gCtx.stroke();
+  }
+  for (let j = 0; j <= 10; j++) {
+    const t = (j / 10 + gridOffset) % 1;
+    gCtx.globalAlpha = t * 0.7;
+    gCtx.beginPath();
+    gCtx.moveTo(0, t * h);
+    gCtx.lineTo(w, t * h);
+    gCtx.stroke();
+  }
+  gCtx.globalAlpha = 1;
+  gridOffset = (gridOffset + 0.003) % 1;
+  requestAnimationFrame(drawGrid);
+}
+initStars(); drawStars(); drawGrid();
+window.addEventListener("resize", initStars);
+</script>
+</body>
+</html>
